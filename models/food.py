@@ -38,3 +38,12 @@ class FoodEntry(BaseModel):
     @property
     def total_calories(self) -> float:
         return self.number_servings * self.food.kcal_per_serving
+    
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class TokenData(BaseModel):
+    username: str
+
