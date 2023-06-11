@@ -77,9 +77,6 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         )
     return user
 
-
-# TODO: use fastapi.Depends (already imported) to add authentication to food_entry endpoints ...
-
 # --------- END JWT TOKEN & SECURITY CONFIG
 app = FastAPI()
 foods: Dict[int, Food] = {}
@@ -156,7 +153,8 @@ async def create_food_entry(
     if total_calories_today + entry.total_calories > user.max_daily_calories:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot add more food than daily caloric allowance = {user.max_daily_calories} kcal / day",
+            detail=f"Cannot add more food than daily caloric allowance \\
+                = {user.max_daily_calories} kcal / day",
         )
     food_log[entry.id] = entry
     return entry
