@@ -1,8 +1,8 @@
-from fastapi import FastAPI, HTTPException,Request,Depends,status
+from fastapi import FastAPI, HTTPException, Request, Depends, status
 from fastapi.responses import HTMLResponse
-from typing import Dict,List,Any
-from models.food import Food,User,FoodEntry,Token,TokenData,pwd_context
-from datetime import datetime,timedelta
+from typing import Dict, List, Any
+from models.food import Food, User, FoodEntry, Token, TokenData, pwd_context
+from datetime import datetime, timedelta
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 # JWT TOKEN & SECURITY CONFIG
@@ -15,6 +15,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 users_db: Dict[str, User] = {}
+
 
 def verify_password(plain_password, hashed_password):
     """Provided, all good"""
@@ -32,6 +33,7 @@ def get_user(username: str):
         user = users_db[username]
         return user
 
+
 def authenticate_user(username: str, password: str):
     user = get_user(username)
     if not user:
@@ -47,6 +49,7 @@ def create_access_token(data: dict, expires_delta: timedelta):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
@@ -79,7 +82,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 
 # --------- END JWT TOKEN & SECURITY CONFIG
 app = FastAPI()
-foods: Dict[int,Food] = {}
+foods: Dict[int, Food] = {}
 food_log: Dict[int, FoodEntry] = {}
 
 HTML_TEMPLATE = """<!doctype html>
@@ -113,6 +116,7 @@ TABLE_ROW = """<tr>
     <td>{total_calories}</td>
 </tr>"""
 
+
 @app.post("/create_user", status_code=201)
 async def create_user(user: User):
     """Ignore / don't touch this endpoint, the tests will use it"""
@@ -135,17 +139,20 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+
 @app.post("/", status_code=201)
 async def create_food_entry(
     entry: FoodEntry, current_user: User = Depends(get_current_user)
 ):
     if entry.id in food_log:
-        raise HTTPException(status_code=400,detail="Food entry already logged, use an update request")
+        raise HTTPException(
+            status_code=400, detail="Food entry already logged, use an update request"
+        )
     user = entry.user
-    total_calories_today =0
+    total_calories_today = 0
     for x in food_log.values():
         if user.id == x.user.id:
-            total_calories_today+= x.total_calories
+            total_calories_today += x.total_calories
     if total_calories_today + entry.total_calories > user.max_daily_calories:
         raise HTTPException(
             status_code=400,
@@ -154,19 +161,20 @@ async def create_food_entry(
     food_log[entry.id] = entry
     return entry
 
+
 @app.get("/users/{user_id}")
 def get_user_food_entries(user_id: int) -> List[FoodEntry]:
     user_entries = [entry for entry in food_log.values() if entry.user.id == user_id]
     return user_entries
+
+
 @app.get("/{username}", response_class=HTMLResponse)
 async def show_foods_for_user(request: Request, username: str):
     # 1. extract foods for user using the food_log dict
     # 2. build up the embedded html string
     # 3. return an HTMLResponse (with the html content and status code 200)
     user_entries = [
-        entry
-        for entry in food_log.values()
-        if entry.user.username == username
+        entry for entry in food_log.values() if entry.user.username == username
     ]
 
     table_rows = ""
@@ -174,33 +182,34 @@ async def show_foods_for_user(request: Request, username: str):
         table_rows += TABLE_ROW.format(
             food_name=entry.food.name,
             date_added=entry.date_added,
-            number_servings = entry.number_servings,
-            serving_size = entry.food.serving_size,
+            number_servings=entry.number_servings,
+            serving_size=entry.food.serving_size,
             total_calories=entry.total_calories,
         )
 
-    html_content = HTML_TEMPLATE.format(username=user_entries[0].user.username, table_rows=table_rows)
+    html_content = HTML_TEMPLATE.format(
+        username=user_entries[0].user.username, table_rows=table_rows
+    )
     return HTMLResponse(content=html_content, media_type="text/html")
+
 
 @app.put("/{entry_id}")
 def update_food_entry(
-    entry_id: int, food_entry: FoodEntry,current_user: User = Depends(get_current_user)
-    ):
+    entry_id: int, food_entry: FoodEntry, current_user: User = Depends(get_current_user)
+):
     if entry_id not in food_log:
         raise HTTPException(status_code=404, detail="Food entry not found")
     food_entry.id = entry_id
     food_log[entry_id] = food_entry
     return food_entry
 
+
 @app.delete("/{entry_id}")
-def delete_food_entry(
-    entry_id: int,
-    current_user: User = Depends(get_current_user)
-    ):
+def delete_food_entry(entry_id: int, current_user: User = Depends(get_current_user)):
     if entry_id not in food_log:
         raise HTTPException(status_code=404, detail="Food entry not found")
     deleted_entry = food_log.pop(entry_id)
-    return {"ok":True}
+    return {"ok": True}
 
 
 @app.post("/food", status_code=201)
@@ -217,24 +226,27 @@ async def create_food(food: Food):
 async def read_foods():
     return list(foods.values())
 
+
 @app.get("/food/{food_id}")
-async def read_food(food_id:int):
+async def read_food(food_id: int):
     try:
         return foods[food_id]
     except:
         raise KeyError
 
+
 @app.put("/food/{food_id}")
-async def update_food(food_id:int,food:Food):
+async def update_food(food_id: int, food: Food):
     if food_id not in foods:
-        raise HTTPException(status_code=404,detail="Food not found")
+        raise HTTPException(status_code=404, detail="Food not found")
     foods[food_id] = food
     return food
 
+
 @app.delete("/food/{food_id}")
-async def delete_food(food_id:int):
+async def delete_food(food_id: int):
     try:
         foods.pop(food_id)
-        return {"ok":True}
+        return {"ok": True}
     except:
-        raise HTTPException(status_code=404,detail="Food not found")
+        raise HTTPException(status_code=404, detail="Food not found")
